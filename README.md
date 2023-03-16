@@ -10,6 +10,7 @@ And install tritonclient[all] opencv-python packages
 
 ```bash
 pip3 install tritonclient[all] opencv-python
+pip3 install "numpy<1.24.0"
 ```
 
 ## How to run model in your code
@@ -17,7 +18,7 @@ pip3 install tritonclient[all] opencv-python
 Example client can be found in client.py. It can run dummy input, images and videos.
 
 ```bash
-python3 client.py image test.jpg
+python3 client.py image test.jpg -u URL_FROM_NGROK
 ```
 
 ```
