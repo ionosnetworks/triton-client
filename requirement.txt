@@ -1,0 +1,4 @@
+ultralytics
+tritonclient[all]
+opencv-python
+torch

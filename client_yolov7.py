@@ -6,16 +6,12 @@ import sys
 import cv2
 
 import tritonclient.grpc as grpcclient
-from tritonclient.utils import InferenceServerException
-
-from processing import preprocess, postprocess
-from render import render_box, render_filled_box, get_text_size, render_text, RAND_COLORS
+from processing import preprocess, postprocess_v7 
+from render import visualize_detection
+from triton_client import connect_triton_server
 from labels import COCOLabels
 
-INPUT_NAMES = ["images"]
-OUTPUT_NAMES = ["num_dets", "det_boxes", "det_scores", "det_classes"]
-
-if __name__ == '__main__':
+def get_flags():
     parser = argparse.ArgumentParser()
     parser.add_argument('mode',
                         choices=['dummy', 'image', 'video'],
@@ -41,11 +37,21 @@ if __name__ == '__main__':
                         required=False,
                         default=640,
                         help='Inference model input height, default 640')
+    parser.add_argument('--confidence',
+                        type=float,
+                        required=False,
+                        default=0.25,
+                        help='confidence threshold, default 0.25')
+    parser.add_argument('--iou_threshold',
+                        type=float,
+                        required=False,
+                        default=0.45,
+                        help='IoU threshold, default 0.45')
     parser.add_argument('-u',
                         '--url',
                         type=str,
                         required=False,
-                        default='localhost:8001',
+                        default='2.tcp.ngrok.io:11563',
                         help='Inference server URL, default localhost:8001')
     parser.add_argument('-o',
                         '--out',
@@ -101,91 +107,47 @@ if __name__ == '__main__':
                         required=False,
                         default=None,
                         help='File holding PEM-encoded certicate chain default is none')
+    return parser.parse_args()
 
-    FLAGS = parser.parse_args()
 
-    # Create server context
-    try:
-        triton_client = grpcclient.InferenceServerClient(
-            url=FLAGS.url,
-            verbose=FLAGS.verbose,
-            ssl=FLAGS.ssl,
-            root_certificates=FLAGS.root_certificates,
-            private_key=FLAGS.private_key,
-            certificate_chain=FLAGS.certificate_chain)
-    except Exception as e:
-        print("context creation failed: " + str(e))
-        sys.exit()
+def setup_model_io(INPUT_NAMES, OUTPUT_NAMES, FLAGS):
+    inputs = []
+    outputs = []
 
-    # Health check
-    if not triton_client.is_server_live():
-        print("FAILED : is_server_live")
-        sys.exit(1)
+    for input_name in INPUT_NAMES:
+        inputs.append(grpcclient.InferInput(input_name, [1, 3, FLAGS.width, FLAGS.height], "FP32"))
 
-    if not triton_client.is_server_ready():
-        print("FAILED : is_server_ready")
-        sys.exit(1)
+    for output_name in OUTPUT_NAMES:
+        outputs.append(grpcclient.InferRequestedOutput(output_name))
 
-    if not triton_client.is_model_ready(FLAGS.model):
-        print("FAILED : is_model_ready")
-        sys.exit(1)
+    return inputs, outputs
 
-    if FLAGS.model_info:
-        # Model metadata
-        try:
-            metadata = triton_client.get_model_metadata(FLAGS.model)
-            print(metadata)
-        except InferenceServerException as ex:
-            if "Request for unknown model" not in ex.message():
-                print("FAILED : get_model_metadata")
-                print("Got: {}".format(ex.message()))
-                sys.exit(1)
-            else:
-                print("FAILED : get_model_metadata")
-                sys.exit(1)
 
-        # Model configuration
-        try:
-            config = triton_client.get_model_config(FLAGS.model)
-            if not (config.config.name == FLAGS.model):
-                print("FAILED: get_model_config")
-                sys.exit(1)
-            print(config)
-        except InferenceServerException as ex:
-            print("FAILED : get_model_config")
-            print("Got: {}".format(ex.message()))
-            sys.exit(1)
+if __name__ == '__main__':
+    INPUT_NAMES = ["images"]
+    OUTPUT_NAMES = ["num_dets", "det_boxes", "det_scores", "det_classes"]
 
+    FLAGS = get_flags()
+    triton_client = connect_triton_server(FLAGS)
+    inputs, outputs = setup_model_io(INPUT_NAMES, OUTPUT_NAMES, FLAGS)
+    
     # DUMMY MODE
     if FLAGS.mode == 'dummy':
         print("Running in 'dummy' mode")
         print("Creating emtpy buffer filled with ones...")
-        inputs = []
-        outputs = []
-        inputs.append(grpcclient.InferInput(INPUT_NAMES[0], [1, 3, FLAGS.width, FLAGS.height], "FP32"))
-        inputs[0].set_data_from_numpy(np.ones(shape=(1, 3, FLAGS.width, FLAGS.height), dtype=np.float32))
-        outputs.append(grpcclient.InferRequestedOutput(OUTPUT_NAMES[0]))
-        outputs.append(grpcclient.InferRequestedOutput(OUTPUT_NAMES[1]))
-        outputs.append(grpcclient.InferRequestedOutput(OUTPUT_NAMES[2]))
-        outputs.append(grpcclient.InferRequestedOutput(OUTPUT_NAMES[3]))
-
         print("Invoking inference...")
+        inputs[0].set_data_from_numpy(np.ones(shape=(1, 3, FLAGS.width, FLAGS.height), dtype=np.float32))
+
         results = triton_client.infer(model_name=FLAGS.model,
                                       inputs=inputs,
                                       outputs=outputs,
                                       client_timeout=FLAGS.client_timeout)
-        if FLAGS.model_info:
-            statistics = triton_client.get_inference_statistics(model_name=FLAGS.model)
-            if len(statistics.model_stats) != 1:
-                print("FAILED: get_inference_statistics")
-                sys.exit(1)
-            print(statistics)
-        print("Done")
 
-        for output in OUTPUT_NAMES:
-            result = results.as_numpy(output)
-            print(f"Received result buffer \"{output}\" of size {result.shape}")
+        for output_name in OUTPUT_NAMES:
+            result = results.as_numpy(output_name)
+            print(f"Received result buffer \"{output_name}\" of size {result.shape}")
             print(f"Naive buffer sum: {np.sum(result)}")
+
 
     # IMAGE MODE
     if FLAGS.mode == 'image':
@@ -194,22 +156,14 @@ if __name__ == '__main__':
             print("FAILED: no input image")
             sys.exit(1)
 
-        inputs = []
-        outputs = []
-        inputs.append(grpcclient.InferInput(INPUT_NAMES[0], [1, 3, FLAGS.width, FLAGS.height], "FP32"))
-        outputs.append(grpcclient.InferRequestedOutput(OUTPUT_NAMES[0]))
-        outputs.append(grpcclient.InferRequestedOutput(OUTPUT_NAMES[1]))
-        outputs.append(grpcclient.InferRequestedOutput(OUTPUT_NAMES[2]))
-        outputs.append(grpcclient.InferRequestedOutput(OUTPUT_NAMES[3]))
-
         print("Creating buffer from image file...")
         input_image = cv2.imread(str(FLAGS.input))
         if input_image is None:
             print(f"FAILED: could not load input image {str(FLAGS.input)}")
             sys.exit(1)
+
         input_image_buffer = preprocess(input_image, [FLAGS.width, FLAGS.height])
         input_image_buffer = np.expand_dims(input_image_buffer, axis=0)
-
         inputs[0].set_data_from_numpy(input_image_buffer)
 
         print("Invoking inference...")
@@ -217,40 +171,27 @@ if __name__ == '__main__':
                                       inputs=inputs,
                                       outputs=outputs,
                                       client_timeout=FLAGS.client_timeout)
-        if FLAGS.model_info:
-            statistics = triton_client.get_inference_statistics(model_name=FLAGS.model)
-            if len(statistics.model_stats) != 1:
-                print("FAILED: get_inference_statistics")
-                sys.exit(1)
-            print(statistics)
-        print("Done")
 
-        for output in OUTPUT_NAMES:
-            result = results.as_numpy(output)
-            print(f"Received result buffer \"{output}\" of size {result.shape}")
-            print(f"Naive buffer sum: {np.sum(result)}")
 
         num_dets = results.as_numpy(OUTPUT_NAMES[0])
         det_boxes = results.as_numpy(OUTPUT_NAMES[1])
         det_scores = results.as_numpy(OUTPUT_NAMES[2])
         det_classes = results.as_numpy(OUTPUT_NAMES[3])
-        detected_objects = postprocess(num_dets, det_boxes, det_scores, det_classes, input_image.shape[1], input_image.shape[0], [FLAGS.width, FLAGS.height])
-        print(f"Detected objects: {len(detected_objects)}")
+        detected_objects = postprocess_v7(num_dets, det_boxes, det_scores, det_classes, input_image.shape[1], input_image.shape[0], [FLAGS.width, FLAGS.height])
 
-        for box in detected_objects:
-            print(f"{COCOLabels(box.classID).name}: {box.confidence}")
-            input_image = render_box(input_image, box.box(), color=tuple(RAND_COLORS[box.classID % 64].tolist()))
-            size = get_text_size(input_image, f"{COCOLabels(box.classID).name}: {box.confidence:.2f}", normalised_scaling=0.6)
-            input_image = render_filled_box(input_image, (box.x1 - 3, box.y1 - 3, box.x1 + size[0], box.y1 + size[1]), color=(220, 220, 220))
-            input_image = render_text(input_image, f"{COCOLabels(box.classID).name}: {box.confidence:.2f}", (box.x1, box.y1), color=(30, 30, 30), normalised_scaling=0.5)
+
+        print(f"Detected objects: {len(detected_objects)}")
+        rendered_image = visualize_detection(input_image, detected_objects, labels=COCOLabels)
 
         if FLAGS.out:
-            cv2.imwrite(FLAGS.out, input_image)
+            cv2.imwrite(FLAGS.out, rendered_image)
             print(f"Saved result to {FLAGS.out}")
+
         else:
-            cv2.imshow('image', input_image)
+            cv2.imshow('image', rendered_image)
             cv2.waitKey(0)
             cv2.destroyAllWindows()
+
 
     # VIDEO MODE
     if FLAGS.mode == 'video':
@@ -258,14 +199,6 @@ if __name__ == '__main__':
         if not FLAGS.input:
             print("FAILED: no input video")
             sys.exit(1)
-
-        inputs = []
-        outputs = []
-        inputs.append(grpcclient.InferInput(INPUT_NAMES[0], [1, 3, FLAGS.width, FLAGS.height], "FP32"))
-        outputs.append(grpcclient.InferRequestedOutput(OUTPUT_NAMES[0]))
-        outputs.append(grpcclient.InferRequestedOutput(OUTPUT_NAMES[1]))
-        outputs.append(grpcclient.InferRequestedOutput(OUTPUT_NAMES[2]))
-        outputs.append(grpcclient.InferRequestedOutput(OUTPUT_NAMES[3]))
 
         print("Opening input video stream...")
         cap = cv2.VideoCapture(FLAGS.input)
@@ -284,7 +217,7 @@ if __name__ == '__main__':
 
             if counter == 0 and FLAGS.out:
                 print("Opening output video stream...")
-                fourcc = cv2.VideoWriter_fourcc('M', 'P', '4', 'V')
+                fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
                 out = cv2.VideoWriter(FLAGS.out, fourcc, FLAGS.fps, (frame.shape[1], frame.shape[0]))
 
             input_image_buffer = preprocess(frame, [FLAGS.width, FLAGS.height])
@@ -301,34 +234,30 @@ if __name__ == '__main__':
             det_boxes = results.as_numpy("det_boxes")
             det_scores = results.as_numpy("det_scores")
             det_classes = results.as_numpy("det_classes")
-            detected_objects = postprocess(num_dets, det_boxes, det_scores, det_classes, frame.shape[1], frame.shape[0], [FLAGS.width, FLAGS.height])
+            detected_objects = postprocess_v7(num_dets, det_boxes, det_scores, det_classes, frame.shape[1], frame.shape[0], [FLAGS.width, FLAGS.height])
+
             print(f"Frame {counter}: {len(detected_objects)} objects")
+            rendered_frame = visualize_detection(frame, detected_objects, labels=COCOLabels)
             counter += 1
 
-            for box in detected_objects:
-                print(f"{COCOLabels(box.classID).name}: {box.confidence}")
-                frame = render_box(frame, box.box(), color=tuple(RAND_COLORS[box.classID % 64].tolist()))
-                size = get_text_size(frame, f"{COCOLabels(box.classID).name}: {box.confidence:.2f}", normalised_scaling=0.6)
-                frame = render_filled_box(frame, (box.x1 - 3, box.y1 - 3, box.x1 + size[0], box.y1 + size[1]), color=(220, 220, 220))
-                frame = render_text(frame, f"{COCOLabels(box.classID).name}: {box.confidence:.2f}", (box.x1, box.y1), color=(30, 30, 30), normalised_scaling=0.5)
-
             if FLAGS.out:
-                out.write(frame)
+                out.write(rendered_frame)
             else:
-                cv2.imshow('image', frame)
+                cv2.imshow('image', rendered_frame)
                 if cv2.waitKey(1) == ord('q'):
                     break
-
-        if FLAGS.model_info:
-            statistics = triton_client.get_inference_statistics(model_name=FLAGS.model)
-            if len(statistics.model_stats) != 1:
-                print("FAILED: get_inference_statistics")
-                sys.exit(1)
-            print(statistics)
-        print("Done")
 
         cap.release()
         if FLAGS.out:
             out.release()
         else:
             cv2.destroyAllWindows()
+
+if FLAGS.model_info:
+    statistics = triton_client.get_inference_statistics(model_name=FLAGS.model)
+    if len(statistics.model_stats) != 1:
+        print("FAILED: get_inference_statistics")
+        sys.exit(1)
+    print(statistics)
+
+print("Done")

@@ -112,12 +112,12 @@ def render_text(img, text, pos, color=(200, 200, 200), normalised_scaling=1.0):
     return img
 
 
-def visualize_detection(input_image, detected_objects):
+def visualize_detection(input_image, detected_objects, labels=Labels):
     rendered_image = input_image.copy()
     for box in detected_objects:
-        print(f"{Labels(box.classID).name}: {box.confidence:.3f}")
+        print(f"{labels(box.classID).name}: {box.confidence:.3f}")
         rendered_image = render_box(rendered_image, box.box(), color=tuple(RAND_COLORS[box.classID].tolist()))
         # size = get_text_size(rendered_image, f"{Labels(box.classID).name}: {box.confidence:.2f}", normalised_scaling=0.6)
         # rendered_image = render_filled_box(rendered_image, (box.x1 - 3, box.y1 - 3, box.x1 + size[0], box.y1 + size[1]), color=(220, 220, 220))
-        rendered_image = render_text(rendered_image, f"{Labels(box.classID).name}: {box.confidence:.2f}", (box.x1, box.y1), color=(30, 30, 30), normalised_scaling=0.5)
+        rendered_image = render_text(rendered_image, f"{labels(box.classID).name}: {box.confidence:.2f}", (box.x1, box.y1), color=(30, 30, 30), normalised_scaling=0.5)
     return rendered_image
