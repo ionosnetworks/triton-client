@@ -9,8 +9,7 @@ docker run --gpus all --rm --ipc=host --shm-size=1g --ulimit memlock=-1 --ulimit
 And install tritonclient[all] opencv-python packages
 
 ```bash
-pip3 install tritonclient[all] opencv-python
-pip3 install "numpy<1.24.0"
+pip3 install tritonclient[all] opencv-python numpy
 ```
 
 ## How to run model in your code

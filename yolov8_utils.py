@@ -2,7 +2,6 @@ import cv2
 import numpy as np
 from ultralytics.yolo.utils import ops
 import torch
-from ultralytics.yolo.data.augment import LetterBox
 from boundingbox import BoundingBox
 
 # def prepare_input(image, input_shape, stride, pt):
