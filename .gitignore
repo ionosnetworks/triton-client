@@ -1,1 +1,8 @@
 *.jpg
+.DS_Store
+output/
+test/
+*.pyc
+*.json
+*.pt
+out/

@@ -1,5 +1,11 @@
 from enum import Enum
 
+class Labels(Enum):
+    VEHICLE = 0
+    HUMAN = 1
+    LICENSE_PLATE = 2
+
+
 class COCOLabels(Enum):
     PERSON = 0
     BICYCLE = 1
@@ -81,3 +87,6 @@ class COCOLabels(Enum):
     TEDDY_BEAR = 77
     HAIR_DRIER = 78
     TOOTHBRUSH = 79
+
+
+ 
