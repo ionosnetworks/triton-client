@@ -9,7 +9,7 @@ from labels import Labels
 _LINE_THICKNESS_SCALING = 1000.0
 
 np.random.seed(0)
-RAND_COLORS = np.random.randint(50, 255, (64, 3), "int")  # used for class visu
+RAND_COLORS = np.random.randint(50, 255, (128, 3), "int")  # used for class visu
 RAND_COLORS[0] = [220, 220, 220]
 
 def render_box(img, box, color=(200, 200, 200)):

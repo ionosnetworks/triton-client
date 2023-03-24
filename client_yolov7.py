@@ -22,7 +22,7 @@ def get_flags():
                         nargs='?',
                         help='Input file to load from in image or video mode')
     parser.add_argument('-m',
-                        '--model',
+                        '--model-name',
                         type=str,
                         required=False,
                         default='yolov7',

@@ -49,14 +49,14 @@ def connect_triton_server(FLAGS):
         print("FAILED : is_server_ready")
         sys.exit(1)
 
-    if not triton_client.is_model_ready(FLAGS.model):
+    if not triton_client.is_model_ready(FLAGS.model_name):
         print("FAILED : is_model_ready")
         sys.exit(1)
 
     if FLAGS.model_info:
         # Model metadata
         try:
-            metadata = triton_client.get_model_metadata(FLAGS.model)
+            metadata = triton_client.get_model_metadata(FLAGS.model_name)
             print(metadata)
         except InferenceServerException as ex:
             if "Request for unknown model" not in ex.message():
@@ -69,8 +69,8 @@ def connect_triton_server(FLAGS):
 
         # Model configuration
         try:
-            config = triton_client.get_model_config(FLAGS.model)
-            if not (config.config.name == FLAGS.model):
+            config = triton_client.get_model_config(FLAGS.model_name)
+            if not (config.config.name == FLAGS.model_name):
                 print("FAILED: get_model_config")
                 sys.exit(1)
             print(config)

@@ -47,6 +47,5 @@ def postprocess_v7(num_dets, det_boxes, det_scores, det_classes, img_w, img_h, i
 
     detected_objects = []
     for box, score, label in zip(boxes, scores, classes):
-        label %= 64
         detected_objects.append(BoundingBox(label, score, box[0], box[2], box[1], box[3], img_w, img_h))
     return detected_objects

@@ -23,7 +23,7 @@ def get_flags():
                         nargs='?',
                         help='Input file to load from in image or video mode')
     parser.add_argument('-m',
-                        '--model',
+                        '--model-name',
                         type=str,
                         required=False,
                         default='yolov8',
@@ -114,7 +114,7 @@ def get_flags():
 def setup_model_io(INPUT_NAMES, OUTPUT_NAMES, FLAGS):
     inputs = []
     outputs = []
-
+    
     for input_name in INPUT_NAMES:
         inputs.append(grpcclient.InferInput(input_name, [1, 3, FLAGS.width, FLAGS.height], "FP32"))
 
@@ -138,7 +138,7 @@ if __name__ == '__main__':
         print("Invoking inference...")
         inputs[0].set_data_from_numpy(np.ones(shape=(1, 3, FLAGS.width, FLAGS.height), dtype=np.float32))
 
-        results = triton_client.infer(model_name=FLAGS.model,
+        results = triton_client.infer(model_name=FLAGS.model_name,
                                       inputs=inputs,
                                       outputs=outputs,
                                       client_timeout=FLAGS.client_timeout)
