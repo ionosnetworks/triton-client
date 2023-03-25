@@ -80,34 +80,3 @@ def connect_triton_server(FLAGS):
             sys.exit(1)
     return triton_client
 
-
-# def triton_infer(image_input, FLAGS=None):
-
-#     if not FLAGS:
-#         FLAGS = set_flags()
-#     INPUT_NAMES = ["images"]
-#     OUTPUT_NAMES = ["output0"]
-#     inputs = []
-#     outputs = []
-#     for INPUT_NAME in INPUT_NAMES:
-#         inputs.append(grpcclient.InferInput(INPUT_NAME, [1, 3, FLAGS.width, FLAGS.height], "FP32"))
-#     for OUTPUT_NAME in OUTPUT_NAMES:
-#         outputs.append(grpcclient.InferRequestedOutput(OUTPUT_NAME))
-
-
-#     inputs[0].set_data_from_numpy(image_input)
-
-#     triton_client = connect_triton_server(FLAGS)
-#     print("Invoking inference...")
-#     results = triton_client.infer(model_name=FLAGS.model,
-#                                     inputs=inputs,
-#                                     outputs=outputs,
-#                                     client_timeout=FLAGS.client_timeout)
-
-#     model_outputs = []
-#     for OUTPUT_NAME in OUTPUT_NAMES:
-#         result = results.as_numpy(OUTPUT_NAME)
-#         model_outputs.append(result)
-#         print(f"Received result buffer \"{OUTPUT_NAME}\" of size {result.shape}")
-#         print(f"Naive buffer sum: {sum(result)}")
-#     return model_outputs

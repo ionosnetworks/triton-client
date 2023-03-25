@@ -108,6 +108,12 @@ def get_flags():
                         required=False,
                         default=None,
                         help='File holding PEM-encoded certicate chain default is none')
+    parser.add_argument('-b',
+                        '--batch-size',
+                        type=int,
+                        required=False,
+                        default=1,
+                        help='Batch size. Default is 1.')
     return parser.parse_args()
 
 
@@ -116,7 +122,7 @@ def setup_model_io(INPUT_NAMES, OUTPUT_NAMES, FLAGS):
     outputs = []
     
     for input_name in INPUT_NAMES:
-        inputs.append(grpcclient.InferInput(input_name, [1, 3, FLAGS.width, FLAGS.height], "FP32"))
+        inputs.append(grpcclient.InferInput(input_name, [FLAGS.batch_size, 3, FLAGS.width, FLAGS.height], "FP32"))
 
     for output_name in OUTPUT_NAMES:
         outputs.append(grpcclient.InferRequestedOutput(output_name))
@@ -136,7 +142,7 @@ if __name__ == '__main__':
         print("Running in 'dummy' mode")
         print("Creating emtpy buffer filled with ones...")
         print("Invoking inference...")
-        inputs[0].set_data_from_numpy(np.ones(shape=(1, 3, FLAGS.width, FLAGS.height), dtype=np.float32))
+        inputs[0].set_data_from_numpy(np.ones(shape=(FLAGS.batch_size, 3, FLAGS.width, FLAGS.height), dtype=np.float32))
 
         results = triton_client.infer(model_name=FLAGS.model_name,
                                       inputs=inputs,
