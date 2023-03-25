@@ -129,7 +129,7 @@ def setup_model_io(INPUT_NAMES, OUTPUT_NAMES, FLAGS):
     outputs = []
 
     for input_name in INPUT_NAMES:
-        inputs.append(grpcclient.InferInput(input_name, [1, 3, FLAGS.width, FLAGS.height], "FP32"))
+        inputs.append(grpcclient.InferInput(input_name, [FLAGS.batch_size, 3, FLAGS.width, FLAGS.height], "FP32"))
 
     for output_name in OUTPUT_NAMES:
         outputs.append(grpcclient.InferRequestedOutput(output_name))
@@ -142,9 +142,7 @@ def requestGenerator(batched_image_data, input_name, output_name, dtype, FLAGS):
     inputs = [grpcclient.InferInput(input_name, batched_image_data.shape, dtype)]
     inputs[0].set_data_from_numpy(batched_image_data)
 
-    outputs = [
-        grpcclient.InferRequestedOutput(output_name)
-    ]
+    outputs = [grpcclient.InferRequestedOutput(output_name)]
 
     yield inputs, outputs, FLAGS.model_name, FLAGS.model_version
 
@@ -163,7 +161,7 @@ if __name__ == '__main__':
     
 
     image_data = []
-    for i in range(80):
+    for i in range(FLAGS.batch_size * 5):
         image_data.append(np.random.randn(3, FLAGS.width, FLAGS.height).astype(np.float32))
     # Send requests of FLAGS.batch_size images. If the number of
     # images isn't an exact multiple of FLAGS.batch_size then just
@@ -193,25 +191,26 @@ if __name__ == '__main__':
             for inputs, outputs, model_name, model_version in requestGenerator(
                     batched_image_data, input_name, output_name, dtype, FLAGS):
                 sent_count += 1
-                responses.append(
-                    triton_client.infer(FLAGS.model_name,
+                response = triton_client.infer(FLAGS.model_name,
                                         inputs,
                                         request_id=str(sent_count),
                                         model_version=FLAGS.model_version,
-                                        outputs=outputs))
+                                        outputs=outputs)
+                responses.append(response)
+                this_id = response.get_response().id
+                print("Request {}, batch size {}".format(this_id, FLAGS.batch_size))
+                for output_name in OUTPUT_NAMES:
+                    result = response.as_numpy(output_name)
+                    print(f"Received result buffer \"{output_name}\" of size {result.shape}")
+                    print(f"Naive buffer sum: {np.sum(result)}")
+                
 
         except InferenceServerException as e:
             print("inference failed: " + str(e))
             sys.exit(1)
 
 
-    for response in responses:
-        this_id = response.get_response().id
-        print("Request {}, batch size {}".format(this_id, FLAGS.batch_size))
-        for output_name in OUTPUT_NAMES:
-            result = response.as_numpy(output_name)
-            print(f"Received result buffer \"{output_name}\" of size {result.shape}")
-            print(f"Naive buffer sum: {np.sum(result)}")
+ 
 
 
 
