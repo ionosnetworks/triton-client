@@ -231,7 +231,7 @@ if __name__ == '__main__':
 
             inputs[0].set_data_from_numpy(input_image_buffer)
 
-            results = triton_client.infer(model_name=FLAGS.model,
+            results = triton_client.infer(model_name=FLAGS.model_name,
                                           inputs=inputs,
                                           outputs=outputs,
                                           client_timeout=FLAGS.client_timeout)
@@ -259,11 +259,11 @@ if __name__ == '__main__':
         else:
             cv2.destroyAllWindows()
 
-if FLAGS.model_info:
-    statistics = triton_client.get_inference_statistics(model_name=FLAGS.model)
-    if len(statistics.model_stats) != 1:
-        print("FAILED: get_inference_statistics")
-        sys.exit(1)
-    print(statistics)
+    if FLAGS.model_info:
+        statistics = triton_client.get_inference_statistics(model_name=FLAGS.model)
+        if len(statistics.model_stats) != 1:
+            print("FAILED: get_inference_statistics")
+            sys.exit(1)
+        print(statistics)
 
-print("Done")
+    print("Done")
