@@ -58,7 +58,7 @@ def get_flags():
                         '--url',
                         type=str,
                         required=False,
-                        default='2.tcp.ngrok.io:11563',
+                        default='0.tcp.ngrok.io:11391',
                         help='Inference server URL, default localhost:8001')
     parser.add_argument('-o',
                         '--out',
@@ -118,7 +118,7 @@ def get_flags():
                         '--batch-size',
                         type=int,
                         required=False,
-                        default=8,
+                        default=100,
                         help='Batch size. Default is 1.')
     return parser.parse_args()
 
@@ -170,6 +170,7 @@ if __name__ == '__main__':
         cap = cv2.VideoCapture(FLAGS.input)
         frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         
         if not cap.isOpened():
             print(f"FAILED: cannot open video {FLAGS.input}")
@@ -233,10 +234,8 @@ if __name__ == '__main__':
             out.release()
         else:
             cv2.destroyAllWindows()
-
-    end_time = time.time()
-    print(f"Done, took {end_time-start_time:.3f} s in total")
-
+        end_time = time.time()
+ 
 
 
 #     # IMAGE MODE
@@ -294,8 +293,9 @@ if __name__ == '__main__':
 #         print("FAILED: get_inference_statistics")
 #         sys.exit(1)
 #     print(statistics)
-
-# print("Done")
+print(f"Took {end_time-start_time:.3f}s in total")
+print(f"{total_frames/(end_time-start_time):.3f} fps")
+print("Done!")
 
 
 
