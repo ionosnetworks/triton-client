@@ -52,6 +52,8 @@ def connect_triton_server(FLAGS):
     if not triton_client.is_model_ready(FLAGS.model_name):
         print("FAILED : is_model_ready")
         sys.exit(1)
+    
+    print("server and model ready!")
 
     if FLAGS.model_info:
         # Model metadata

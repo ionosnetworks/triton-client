@@ -5,6 +5,7 @@ import numpy as np
 import sys
 import cv2
 import time
+import os
 
 import tritonclient.grpc as grpcclient
 from processing import preprocess 
@@ -70,8 +71,8 @@ def get_flags():
                         '--fps',
                         type=float,
                         required=False,
-                        default=24.0,
-                        help='Video output fps, default 24.0 FPS')
+                        default=None,
+                        help='Video output fps, default video original FPS')
     parser.add_argument('-i',
                         '--model-info',
                         action="store_true",
@@ -118,8 +119,8 @@ def get_flags():
                         '--batch-size',
                         type=int,
                         required=False,
-                        default=100,
-                        help='Batch size. Default is 1.')
+                        default=16,
+                        help='Batch size. Default is 16.')
     return parser.parse_args()
 
 
@@ -171,6 +172,7 @@ if __name__ == '__main__':
         frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        fps = cap.get(cv2.CAP_PROP_FPS) if not FLAGS.fps else FLAGS.fps
         
         if not cap.isOpened():
             print(f"FAILED: cannot open video {FLAGS.input}")
@@ -179,7 +181,9 @@ if __name__ == '__main__':
         if FLAGS.out:
             print("Opening output video stream...")
             fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
-            out = cv2.VideoWriter(FLAGS.out, fourcc, FLAGS.fps, (frame_width, frame_height))
+            filename = os.path.splitext(os.path.basename(FLAGS.input))[0]
+            out_filename = filename + '.mp4' if FLAGS.out else f"output/{filename}_bs{FLAGS.batch_size}_output.mp4"
+            out = cv2.VideoWriter(out_filename, fourcc, fps, (frame_width, frame_height))
 
         counter = 0
         print("Invoking inference...")
