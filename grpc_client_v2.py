@@ -59,7 +59,7 @@ def get_flags():
                         '--url',
                         type=str,
                         required=False,
-                        default='0.tcp.ngrok.io:11391',
+                        default='localhost:8001',
                         help='Inference server URL, default localhost:8001')
     parser.add_argument('-o',
                         '--out',
@@ -178,12 +178,13 @@ if __name__ == '__main__':
             print(f"FAILED: cannot open video {FLAGS.input}")
             sys.exit(1)
  
-        if FLAGS.out:
-            print("Opening output video stream...")
-            fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
-            filename = os.path.splitext(os.path.basename(FLAGS.input))[0]
-            out_filename = filename + '.mp4' if FLAGS.out else f"output/{filename}_bs{FLAGS.batch_size}_output.mp4"
-            out = cv2.VideoWriter(out_filename, fourcc, fps, (frame_width, frame_height))
+
+        print("Opening output video stream...")
+        fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
+        filename = os.path.splitext(os.path.basename(FLAGS.input))[0]
+        out_filename = FLAGS.out if FLAGS.out else f"output/{filename}_bs{FLAGS.batch_size}_output.mp4"
+        print(f"Output video: {out_filename}")
+        out = cv2.VideoWriter(out_filename, fourcc, fps, (frame_width, frame_height))
 
         counter = 0
         print("Invoking inference...")
@@ -214,8 +215,9 @@ if __name__ == '__main__':
 
             for output_name in OUTPUT_NAMES:
                 result = response.as_numpy(output_name)
-                print(f"Received result buffer \"{output_name}\" of size {result.shape}")
-                print(f"Naive buffer sum: {np.sum(result)}")
+                if FLAGS.verbose:
+                    print(f"Received result buffer \"{output_name}\" of size {result.shape}")
+                    print(f"Naive buffer sum: {np.sum(result)}")
             
  
             predictions = response.as_numpy(OUTPUT_NAMES[0])
@@ -224,20 +226,17 @@ if __name__ == '__main__':
                 prediction = np.expand_dims(prediction, axis=0)
                 detections = process_output(prediction, frame.shape, [FLAGS.width, FLAGS.height], FLAGS.confidence, FLAGS.iou_threshold)
                 detected_objects = postprocess(detections, frame.shape)
-                print(f"Batch {counter} Frame {idx}: {len(detected_objects)} objects")
+                if FLAGS.verbose:
+                    print(f"Batch {counter} Frame {idx}: {len(detected_objects)} objects")
                 rendered_frame = visualize_detection(frame, detected_objects)
-                if FLAGS.out:
-                    out.write(rendered_frame)
+                out.write(rendered_frame)
             batch_process_end = time.time()
             print(f"Postprocessed batch {counter}, took {batch_process_end-batch_end:.3f} s")
 
             counter += 1
 
         cap.release()
-        if FLAGS.out:
-            out.release()
-        else:
-            cv2.destroyAllWindows()
+        out.release()
         end_time = time.time()
  
 
@@ -291,12 +290,13 @@ if __name__ == '__main__':
 
 
 
-# if FLAGS.model_info:
-#     statistics = triton_client.get_inference_statistics(model_name=FLAGS.model)
-#     if len(statistics.model_stats) != 1:
-#         print("FAILED: get_inference_statistics")
-#         sys.exit(1)
-#     print(statistics)
+if FLAGS.model_info:
+    statistics = triton_client.get_inference_statistics(model_name=FLAGS.model)
+    if len(statistics.model_stats) != 1:
+        print("FAILED: get_inference_statistics")
+        sys.exit(1)
+    print(statistics)
+
 print(f"Took {end_time-start_time:.3f}s in total")
 print(f"{total_frames/(end_time-start_time):.3f} fps")
 print("Done!")
