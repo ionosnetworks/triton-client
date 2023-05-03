@@ -190,7 +190,7 @@ if __name__ == '__main__':
 
         input_image_buffer = []
         for frame in frames:
-            input_image_buffer.append(preprocess(frame, [FLAGS.width, FLAGS.height]))
+            input_image_buffer.append(preprocess(frame, [FLAGS.height, FLAGS.width]))
         input_image_buffer = np.stack(input_image_buffer, axis=0)
 
         inputs, outputs = set_batch_io(input_image_buffer, INPUT_NAMES, OUTPUT_NAMES)
@@ -237,8 +237,7 @@ if __name__ == '__main__':
     #     if len(statistics.model_stats) != 1:
     #         print("FAILED: get_inference_statistics")
     #         sys.exit(1)
-    #     print(statistics)
-        
+    #     print(statistics)     
     print(f"Took {end_time-start_time:.3f}s in total")
     print(f"{total_frames/(end_time-start_time):.3f} fps")
     print("Done!")

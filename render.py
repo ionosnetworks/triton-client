@@ -115,6 +115,7 @@ def render_text(img, text, pos, color=(200, 200, 200), normalised_scaling=1.0):
 def visualize_detection(input_image, detected_objects, labels=Labels, verbose=False):
     rendered_image = input_image.copy()
     for box in detected_objects:
+        # box.classID = box.classID % len(Labels)
         if verbose:
             print(f"{labels(box.classID).name}: {box.confidence:.3f}")
         rendered_image = render_box(rendered_image, box.box(), color=tuple(RAND_COLORS[box.classID].tolist()))
