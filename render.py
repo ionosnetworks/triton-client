@@ -10,7 +10,7 @@ _LINE_THICKNESS_SCALING = 1000.0
 
 np.random.seed(0)
 RAND_COLORS = np.random.randint(50, 255, (128, 3), "int")  # used for class visu
-RAND_COLORS[0] = [220, 220, 220]
+RAND_COLORS[0] = [255, 0, 0]
 
 def render_box(img, box, color=(200, 200, 200)):
     """

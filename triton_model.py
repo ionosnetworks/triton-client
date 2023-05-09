@@ -39,7 +39,7 @@ class TritonModel:
         self.verbose = verbose
 
     def __call__(self, input_datas, **kwargs):
-        """input_datas: list of numpy arrays"""
+        """input_datas: list of numpy arrays corresponding to the input names"""
 
         output_dict = {}
         inputs = []

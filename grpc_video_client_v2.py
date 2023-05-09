@@ -9,7 +9,7 @@ import os
 
 from processing import preprocess 
 from yolov8_utils import process_output, postprocess
-from render import visualize_detection
+from render import visualize_detection as visualize
 from triton_model import connect_triton_server, TritonModel
 
 
@@ -96,6 +96,19 @@ def frame_generator(cap, batch_size=1):
         else:
             break
  
+def yolov8_preprocess(frames):
+    input_image_buffer = []
+    for frame in frames:
+        input_image_buffer.append(preprocess(frame, [FLAGS.height, FLAGS.width]))
+    input_image_buffer = [np.stack(input_image_buffer, axis=0)]
+    return input_image_buffer
+
+def yolov8_postprocess(prediction, frame):
+    prediction = np.expand_dims(prediction, axis=0)
+    detections = process_output(prediction, frame.shape, [FLAGS.width, FLAGS.height], conf_threshold=0.25, iou_threshold=0.45)
+    detected_objects = postprocess(detections, frame.shape)
+    return detected_objects
+
 if __name__ == '__main__':
     FLAGS = get_flags()
     triton_client = connect_triton_server(FLAGS.url)
@@ -129,15 +142,13 @@ if __name__ == '__main__':
     print("Invoking inference...")
     start_time = time.time()
 
+
     for frames in frame_generator(cap, FLAGS.batch_size):
         print(f"Processing batch {counter}...")
         batch_start = time.time()
 
-        input_image_buffer = []
-        for frame in frames:
-            input_image_buffer.append(preprocess(frame, [FLAGS.height, FLAGS.width]))
-        input_image_buffer = [np.stack(input_image_buffer, axis=0)]
-
+        input_image_buffer = yolov8_preprocess(frames)
+        
         output = model(input_image_buffer)
         
         batch_end = time.time()
@@ -146,12 +157,10 @@ if __name__ == '__main__':
         predictions = output[model.output_names[0]]
         for idx, prediction in enumerate(predictions):
             frame = frames[idx]
-            prediction = np.expand_dims(prediction, axis=0)
-            detections = process_output(prediction, frame.shape, [FLAGS.width, FLAGS.height], conf_threshold=0.25, iou_threshold=0.45)
-            detected_objects = postprocess(detections, frame.shape)
+            detected_objects = yolov8_postprocess(prediction, frame)
             if FLAGS.verbose:
                 print(f"Batch {counter} Frame {idx}: {len(detected_objects)} objects")
-            rendered_frame = visualize_detection(frame, detected_objects, verbose=FLAGS.verbose)
+            rendered_frame = visualize(frame, detected_objects, verbose=FLAGS.verbose)
             out.write(rendered_frame)
             
         batch_process_end = time.time()
@@ -166,6 +175,7 @@ if __name__ == '__main__':
     print(f"Took {end_time-start_time:.3f}s in total")
     print(f"{total_frames/(end_time-start_time):.3f} fps")
     print("Done!")
+   
 
 
 
