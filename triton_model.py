@@ -56,4 +56,23 @@ class TritonModel:
                         
         return output_dict
     
+
+    def infer(self, input_datas, **kwargs):
+        return self.__call__(self, input_datas, **kwargs)
+    
+
+    def async_infer(self, input_datas, callback, **kwargs):
+        """input_datas: list of numpy arrays corresponding to the input names"""
+
+        inputs = []
+
+        for input_data, input_name, input_datatype in zip(input_datas, self.input_names, self.input_datatypes):
+            input = grpcclient.InferInput(input_name, input_data.shape, input_datatype)
+            inputs.append(input)
+            inputs[-1].set_data_from_numpy(input_data)
+
+        self.triton_client.async_infer(self.model_name, inputs, callback, model_version=self.model_version, **kwargs)
+
+    
+ 
  
