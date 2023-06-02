@@ -9,12 +9,13 @@ import os
 import queue
 from functools import partial
 import threading
+from datetime import datetime
 
 from processing import preprocess 
 from yolov8_utils import process_output, postprocess
 from render import visualize_detection as visualize
 from triton_model import connect_triton_server, TritonModel
-
+from lpr_utils import lpr_inference
 
 def get_flags():
     parser = argparse.ArgumentParser()
@@ -141,12 +142,19 @@ def postprocess_thread(lpr_model):
         request_id = int(result.get_response().id)
         frames = input_frames[request_id]
         rendered_frames = []
+        detected_objects_list = []
         for idx, prediction in enumerate(predictions):
             frame = frames[idx]
             detected_objects = yolov8_postprocess(prediction, frame)
+            detected_objects_list.append(detected_objects)
             if FLAGS.verbose:
                 print(f"Batch {request_id} Frame {idx}: {len(detected_objects)} objects")
-            rendered_frame = visualize(frame, detected_objects, verbose=FLAGS.verbose, lpr_model=lpr_model)
+
+        lpr_inference(detected_objects_list, frames, lpr_model)
+
+        for idx, frame in enumerate(frames):
+            detected_objects = detected_objects_list[idx]
+            rendered_frame = visualize(frame, detected_objects, verbose=FLAGS.verbose)
             rendered_frames.append(rendered_frame)
             
         batch_process_end = time.time()
@@ -192,7 +200,9 @@ if __name__ == '__main__':
     print("Opening output video stream...")
     fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
     filename = os.path.splitext(os.path.basename(FLAGS.input))[0]
-    out_filename = FLAGS.out if FLAGS.out else f"output/{filename}_bs{FLAGS.batch_size}_output.mp4"
+    now = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+
+    out_filename = FLAGS.out if FLAGS.out else f"output/{filename}_bs{FLAGS.batch_size}_output_{now}.mp4"
     print(f"Output video: {out_filename}")
     out = cv2.VideoWriter(out_filename, fourcc, fps, (frame_width, frame_height))
 

@@ -9,6 +9,7 @@ import os
 import queue
 from functools import partial
 import threading
+import datetime
 
 from processing import preprocess 
 from yolov8_utils import process_output, postprocess
@@ -189,7 +190,8 @@ if __name__ == '__main__':
     print("Opening output video stream...")
     fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
     filename = os.path.splitext(os.path.basename(FLAGS.input))[0]
-    out_filename = FLAGS.out if FLAGS.out else f"output/{filename}_bs{FLAGS.batch_size}_output.mp4"
+    now = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    out_filename = FLAGS.out if FLAGS.out else f"output/{filename}_bs{FLAGS.batch_size}_output_{now}.mp4"
     print(f"Output video: {out_filename}")
     out = cv2.VideoWriter(out_filename, fourcc, fps, (frame_width, frame_height))
 

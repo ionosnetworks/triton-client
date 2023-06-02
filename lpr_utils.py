@@ -42,3 +42,54 @@ def lpr_single_inference(image, model):
     pred = output['tf_op_layer_ArgMax']
     label = decode(pred, CHARS)
     return label[0]
+
+def lpr_batch_inference(images, model, batch_size=16):
+    image_buffer = []
+    recognition_res = []
+
+    for image in images:
+        resized = cv2.resize(image, (96, 48))
+        image = np.transpose(resized, (2, 0, 1)).astype(np.float32)
+        image /= 255
+        image_buffer.append(image)
+
+    i = 0 
+    while i < len(image_buffer):
+        input_datas = [np.stack(image_buffer[i:i+batch_size])]
+        output = model(input_datas)
+        pred = output['tf_op_layer_ArgMax']
+        label = decode(pred, CHARS)
+        recognition_res.extend(label)
+        i += batch_size
+
+    return recognition_res
+
+
+
+def lpr_inference(detected_objects_list, frames, lpr_model):
+    crop_queue = []
+    locations = []
+
+    for idx in range(len(frames)):
+        frame = frames[idx]
+        detected_objects = detected_objects_list[idx]
+        for idy, box in enumerate(detected_objects):
+            if box.classID == 2:
+                x1, y1, x2, y2 = box.box()
+                crop = frame[y1:y2, x1:x2, :]
+                crop_queue.append(crop)
+                locations.append((idx, idy))
+    
+    if not crop_queue: return
+    
+    recognition_res = lpr_batch_inference(crop_queue, lpr_model)
+
+    for loc, label in zip(locations, recognition_res):
+        idx, idy = loc
+        detected_objects_list[idx][idy].plate = label
+    
+   
+
+
+
+
