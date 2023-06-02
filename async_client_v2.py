@@ -6,6 +6,9 @@ import sys
 import cv2
 import time
 import os
+import queue
+from functools import partial
+import threading
 
 from processing import preprocess 
 from yolov8_utils import process_output, postprocess
@@ -20,6 +23,13 @@ def get_flags():
                         type=str,
                         nargs='?',
                         help='Input video file')
+    parser.add_argument('-a',
+                        '--async',
+                        dest="async_set",
+                        action="store_true",
+                        required=False,
+                        default=False,
+                        help='Use asynchronous inference API')
     parser.add_argument('-m',
                         '--model-name',
                         type=str,
@@ -109,10 +119,55 @@ def yolov8_postprocess(prediction, frame):
     detected_objects = postprocess(detections, frame.shape)
     return detected_objects
 
+def completion_callback(infer_status, result, error):
+    infer_status.put((result, error))
+
+
+def postprocess_thread():
+    print("Starting postprocess thread")
+    processed_count = 0
+    current_batch = 0
+
+    while processed_count < sent_count or not sent_count:
+        result, error = infer_status.get()
+        if error:
+            print("inference failed: " + str(error))
+            sys.exit(1)
+
+        batch_end = time.time()
+        predictions = result.as_numpy(model.output_names[0])
+        request_id = int(result.get_response().id)
+        frames = input_frames[request_id]
+        rendered_frames = []
+        for idx, prediction in enumerate(predictions):
+            frame = frames[idx]
+            detected_objects = yolov8_postprocess(prediction, frame)
+            if FLAGS.verbose:
+                print(f"Batch {request_id} Frame {idx}: {len(detected_objects)} objects")
+            rendered_frame = visualize(frame, detected_objects, verbose=FLAGS.verbose)
+            rendered_frames.append(rendered_frame)
+            
+        batch_process_end = time.time()
+        print(f"Postprocessed batch {request_id}, took {batch_process_end-batch_end:.3f} s")
+        output_dict[request_id] = rendered_frames
+
+        while current_batch in output_dict:
+            for frame in output_dict[current_batch]:
+                out.write(frame)
+            print(f"Writing batch {current_batch} to output")
+            current_batch += 1
+        processed_count += 1
+
+    print("All postprocessing complete")
+
+
 if __name__ == '__main__':
     FLAGS = get_flags()
     triton_client = connect_triton_server(FLAGS.url)
     model = TritonModel(FLAGS.model_name, triton_client, model_version=FLAGS.model_version)
+    infer_status = queue.Queue()
+    output_dict = {}
+    input_frames = {}
 
     print("Running in video mode")
     if not FLAGS.input:
@@ -138,36 +193,26 @@ if __name__ == '__main__':
     print(f"Output video: {out_filename}")
     out = cv2.VideoWriter(out_filename, fourcc, fps, (frame_width, frame_height))
 
-    counter = 0
+    sent_count = 0
     print("Invoking inference...")
     start_time = time.time()
 
+    postprocess_thread = threading.Thread(target=postprocess_thread)
+    postprocess_thread.start()
 
     for frames in frame_generator(cap, FLAGS.batch_size):
-        print(f"Processing batch {counter}...")
-        batch_start = time.time()
+        print(f"Sending batch {sent_count}...")
 
         input_image_buffer = yolov8_preprocess(frames)
-        
-        output = model(input_image_buffer)
-        
-        batch_end = time.time()
-        print(f"Finished request, batch size {FLAGS.batch_size},took {batch_end-batch_start:.3f} s"  )
+        input_frames[sent_count] = frames
 
-        predictions = output[model.output_names[0]]
-        for idx, prediction in enumerate(predictions):
-            frame = frames[idx]
-            detected_objects = yolov8_postprocess(prediction, frame)
-            if FLAGS.verbose:
-                print(f"Batch {counter} Frame {idx}: {len(detected_objects)} objects")
-            rendered_frame = visualize(frame, detected_objects, verbose=FLAGS.verbose)
-            out.write(rendered_frame)
-            
-        batch_process_end = time.time()
-        print(f"Postprocessed batch {counter}, took {batch_process_end-batch_end:.3f} s")
+        output = model.async_infer(input_image_buffer, partial(completion_callback, infer_status), request_id=str(sent_count))
 
-        counter += 1
+        sent_count += 1
 
+    print("All requests sent")
+
+    postprocess_thread.join()
     cap.release()
     out.release()
     end_time = time.time()
@@ -175,7 +220,6 @@ if __name__ == '__main__':
     print(f"Took {end_time-start_time:.3f}s in total")
     print(f"{total_frames/(end_time-start_time):.3f} fps")
     print("Done!")
-   
 
 
 
