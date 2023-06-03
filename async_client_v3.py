@@ -114,11 +114,17 @@ def yolov8_preprocess(frames):
     input_image_buffer = [np.stack(input_image_buffer, axis=0)]
     return input_image_buffer
 
-def yolov8_postprocess(prediction, frame):
-    prediction = np.expand_dims(prediction, axis=0)
-    detections = process_output(prediction, frame.shape, [FLAGS.width, FLAGS.height], conf_threshold=0.25, iou_threshold=0.45)
-    detected_objects = postprocess(detections, frame.shape)
-    return detected_objects
+def yolov8_postprocess(predictions, frames):
+    detected_objects_list = []
+    prediction = np.stack(predictions, axis=0)
+    frame = frames[0]
+    detections = process_output(prediction, frame.shape, [FLAGS.width, FLAGS.height], conf_threshold=0.25, iou_threshold=0.45, batched=True)
+    for i in range(len(frames)):
+        frame = frames[i]
+        detected_objects = postprocess(detections[i], frame.shape)
+        detected_objects_list.append(detected_objects)
+    return detected_objects_list
+
 
 def completion_callback(infer_status, result, error):
     infer_status.put((result, error))
@@ -140,11 +146,10 @@ def postprocess_thread():
         request_id = int(result.get_response().id)
         frames = input_frames[request_id]
         rendered_frames = []
-        for idx, prediction in enumerate(predictions):
-            frame = frames[idx]
-            detected_objects = yolov8_postprocess(prediction, frame)
-            if FLAGS.verbose:
-                print(f"Batch {request_id} Frame {idx}: {len(detected_objects)} objects")
+        detected_objects_list = yolov8_postprocess(predictions, frames)
+
+        for idx, frame in enumerate(frames):
+            detected_objects = detected_objects_list[idx]
             rendered_frame = visualize(frame, detected_objects, verbose=FLAGS.verbose)
             rendered_frames.append(rendered_frame)
             

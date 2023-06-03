@@ -21,6 +21,7 @@ def process_output(detections,
                    classes=None,
                    agnostic=False,
                    max_det=300,
+                   batched=False,
                    ):
     detections = torch.from_numpy(detections.copy()).to("cpu")
     detections = ops.non_max_suppression(detections,
@@ -36,7 +37,8 @@ def process_output(detections,
         detections[i][:, :4] = ops.scale_boxes(input_shape, detections[i][:, :4], ori_shape).round()
 
     
-    return detections[0].cpu().numpy()
+    return [detection.cpu().numpy()  for detection in detections] if batched else detections[0].cpu().numpy()
+
 
 # def rescale_boxes(boxes, ori_shape, input_shape):
 

@@ -18,7 +18,7 @@ def connect_triton_server(url="localhost:8001"):
         print("FAILED : is_server_ready")
         sys.exit(1)
 
-    print("server ready!")
+    print("Server is ready!")
 
     return triton_client
  
