@@ -1,10 +1,13 @@
 import cv2
 import numpy as np
+import os
 
 CHARS = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 
          'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 
          'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 
          'U', 'V', 'W', 'X', 'Y', 'Z', '', '']
+
+cnt = 0
 
 def decode(preds, CHARS=CHARS):
     # greedy decode
@@ -66,7 +69,10 @@ def lpr_batch_inference(images, model, batch_size=16):
 
 
 
-def lpr_inference(detected_objects_list, frames, lpr_model):
+def lpr_inference(detected_objects_list, frames, lpr_model, save_path=None):
+    global cnt
+    if save_path and not os.path.exists(save_path):
+        os.makedirs(save_path)
     crop_queue = []
     locations = []
 
@@ -83,10 +89,17 @@ def lpr_inference(detected_objects_list, frames, lpr_model):
     if not crop_queue: return
     
     recognition_res = lpr_batch_inference(crop_queue, lpr_model)
-
-    for loc, label in zip(locations, recognition_res):
-        idx, idy = loc
+    for index in range(len(recognition_res)):
+        idx, idy = locations[index]
+        label = recognition_res[index]
         detected_objects_list[idx][idy].plate = label
+        if save_path:
+            filename = f"{str(cnt).zfill(8)}.jpg"
+            total_path = f"{save_path}/{label}"
+            if not os.path.exists(total_path):
+                os.makedirs(total_path)
+            cv2.imwrite(f"{total_path}/{filename}", crop_queue[idx])
+            cnt += 1
     
    
 
