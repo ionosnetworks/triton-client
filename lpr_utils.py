@@ -98,7 +98,7 @@ def lpr_inference(detected_objects_list, frames, lpr_model, save_path=None):
             total_path = f"{save_path}/{label}"
             if not os.path.exists(total_path):
                 os.makedirs(total_path)
-            cv2.imwrite(f"{total_path}/{filename}", crop_queue[idx])
+            cv2.imwrite(f"{total_path}/{filename}", crop_queue[index])
             cnt += 1
     
    
