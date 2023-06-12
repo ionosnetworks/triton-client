@@ -11,8 +11,8 @@ from functools import partial
 import threading
 from datetime import datetime
 
-from processing import preprocess 
-from yolov8_utils import process_output, postprocess
+from processing import preprocess, postprocess 
+from yolov8_utils import process_output
 from render import visualize_detection as visualize
 from triton_model import connect_triton_server, TritonModel
 from lpr_utils import lpr_inference

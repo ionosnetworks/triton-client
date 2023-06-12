@@ -19,8 +19,8 @@ from numpy import random
 
 from deep_sort_pytorch.utils.parser import get_config
 from deep_sort_pytorch.deep_sort import DeepSort
-from processing import preprocess 
-from yolov8_utils import process_output, postprocess
+from processing import preprocess, postprocess 
+from yolov8_utils import process_output
 from triton_model import connect_triton_server, TritonModel
 
 
@@ -439,7 +439,7 @@ if __name__ == '__main__':
     fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
     filename = os.path.splitext(os.path.basename(FLAGS.input))[0]
     now = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    out_filename = FLAGS.out if FLAGS.out else f"output/{filename}_bs{FLAGS.batch_size}_output_{now}.mp4"
+    out_filename = FLAGS.out if FLAGS.out else f"output/{filename}_bs{FLAGS.batch_size}_{FLAGS.model_name}_{now}.mp4"
     print(f"Output video: {out_filename}")
     out = cv2.VideoWriter(out_filename, fourcc, fps, (frame_width, frame_height))
 

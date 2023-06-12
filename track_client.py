@@ -1,4 +1,3 @@
-
 import argparse
 import numpy as np
 import sys
@@ -9,32 +8,20 @@ import queue
 from functools import partial
 import threading
 from datetime import datetime
-
-from processing import preprocess 
-from yolov8_utils import process_output, postprocess
-from render import visualize_detection as visualize
-from triton_model import connect_triton_server, TritonModel
-
+from collections import deque
 
 import hydra
 import torch
 import argparse
 import time
-from pathlib import Path
-
- 
 import torch
-# import torch.backends.cudnn as cudnn
 from numpy import random
-# from ultralytics.yolo.engine.predictor import BasePredictor
-# from ultralytics.yolo.utils import DEFAULT_CONFIG, ROOT, ops
-# from ultralytics.yolo.utils.checks import check_imgsz
-# from ultralytics.yolo.utils.plotting import Annotator, colors, save_one_box
 
 from deep_sort_pytorch.utils.parser import get_config
 from deep_sort_pytorch.deep_sort import DeepSort
-from collections import deque
-
+from processing import preprocess, postprocess 
+from yolov8_utils import process_output
+from triton_model import connect_triton_server, TritonModel
 
 
 
@@ -388,7 +375,7 @@ if __name__ == '__main__':
     fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
     filename = os.path.splitext(os.path.basename(FLAGS.input))[0]
     now = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    out_filename = FLAGS.out if FLAGS.out else f"output/{filename}_bs{FLAGS.batch_size}_output_{now}.mp4"
+    out_filename = FLAGS.out if FLAGS.out else f"output/{filename}_bs{FLAGS.batch_size}_{FLAGS.model_name}_{now}.mp4"
     print(f"Output video: {out_filename}")
     out = cv2.VideoWriter(out_filename, fourcc, fps, (frame_width, frame_height))
 
