@@ -53,6 +53,16 @@ def get_flags():
                         required=False,
                         default=768,
                         help='Inference model input height, default 640')
+    parser.add_argument('--confidence',
+                        type=float,
+                        required=False,
+                        default=0.7,
+                        help='confidence threshold, default 0.7')
+    parser.add_argument('--iou_threshold',
+                        type=float,
+                        required=False,
+                        default=0.45,
+                        help='IoU threshold, default 0.45')
     parser.add_argument('-u',
                         '--url',
                         type=str,
@@ -120,7 +130,7 @@ def yolov8_postprocess(predictions, frames):
     detected_objects_list = []
     prediction = np.stack(predictions, axis=0)
     frame = frames[0]
-    detections = process_output(prediction, frame.shape, [FLAGS.width, FLAGS.height], conf_threshold=0.25, iou_threshold=0.45, batched=True)
+    detections = process_output(prediction, frame.shape, [FLAGS.width, FLAGS.height], FLAGS.confidence, FLAGS.iou_threshold, batched=True)
     for i in range(len(frames)):
         frame = frames[i]
         detected_objects = postprocess(detections[i], frame.shape)
@@ -200,7 +210,7 @@ if __name__ == '__main__':
     filename = os.path.splitext(os.path.basename(FLAGS.input))[0]
     now = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
-    out_filename = FLAGS.out if FLAGS.out else f"output/{filename}_bs{FLAGS.batch_size}_output_{now}.mp4"
+    out_filename = FLAGS.out if FLAGS.out else f"output/{filename}_bs{FLAGS.batch_size}_{FLAGS.model_name}_{now}.mp4"
     print(f"Output video: {out_filename}")
     out = cv2.VideoWriter(out_filename, fourcc, fps, (frame_width, frame_height))
 

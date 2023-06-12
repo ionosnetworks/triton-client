@@ -11,11 +11,11 @@ from functools import partial
 import threading
 from datetime import datetime
 
-import torch
 from processing import preprocess, postprocess
+from yolov5_utils import process_output
 from render import visualize_detection as visualize
 from triton_model import connect_triton_server, TritonModel
-from yolov5_utils import process_output
+from lpr_utils import lpr_inference
 
 def get_flags():
     parser = argparse.ArgumentParser()
@@ -116,7 +116,8 @@ def frame_generator(cap, batch_size=1):
             yield frames
         else:
             break
- 
+
+
 def yolov5_preprocess(frames):
     input_image_buffer = []
     for frame in frames:
@@ -130,7 +131,7 @@ def yolov5_postprocess(predictions, frames):
     frame = frames[0]
 
     detections = process_output(prediction, frame.shape, [FLAGS.width, FLAGS.height], FLAGS.confidence, FLAGS.iou_threshold, batched=True)
-
+    
     for i in range(len(frames)):
         frame = frames[i]
         detected_objects = postprocess(detections[i], frame.shape)
@@ -142,7 +143,7 @@ def completion_callback(infer_status, result, error):
     infer_status.put((result, error))
 
 
-def postprocess_thread():
+def postprocess_thread(lpr_model):
     print("Starting postprocess thread")
     processed_count = 0
     current_batch = 0
@@ -159,6 +160,7 @@ def postprocess_thread():
         frames = input_frames[request_id]
         rendered_frames = []
         detected_objects_list = yolov5_postprocess(predictions, frames)
+        lpr_inference(detected_objects_list, frames, lpr_model)
 
         for idx, frame in enumerate(frames):
             detected_objects = detected_objects_list[idx]
@@ -183,6 +185,7 @@ if __name__ == '__main__':
     FLAGS = get_flags()
     triton_client = connect_triton_server(FLAGS.url)
     model = TritonModel(FLAGS.model_name, triton_client, model_version=FLAGS.model_version)
+    lpr_model = TritonModel("lprnet_tao", triton_client)
     infer_status = queue.Queue()
     output_dict = {}
     input_frames = {}
@@ -208,6 +211,7 @@ if __name__ == '__main__':
     fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
     filename = os.path.splitext(os.path.basename(FLAGS.input))[0]
     now = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+
     out_filename = FLAGS.out if FLAGS.out else f"output/{filename}_bs{FLAGS.batch_size}_{FLAGS.model_name}_{now}.mp4"
     print(f"Output video: {out_filename}")
     out = cv2.VideoWriter(out_filename, fourcc, fps, (frame_width, frame_height))
@@ -216,7 +220,7 @@ if __name__ == '__main__':
     print("Invoking inference...")
     start_time = time.time()
 
-    postprocess_thread = threading.Thread(target=postprocess_thread)
+    postprocess_thread = threading.Thread(target=postprocess_thread, args=(lpr_model,))
     postprocess_thread.start()
 
     for frames in frame_generator(cap, FLAGS.batch_size):
