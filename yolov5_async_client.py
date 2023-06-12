@@ -12,8 +12,7 @@ import threading
 from datetime import datetime
 
 import torch
-from processing import preprocess 
-from yolov8_utils import postprocess
+from processing import preprocess, postprocess
 from render import visualize_detection as visualize
 from triton_model import connect_triton_server, TritonModel
 from yolov5_utils import process_output
@@ -57,8 +56,8 @@ def get_flags():
     parser.add_argument('--confidence',
                         type=float,
                         required=False,
-                        default=0.25,
-                        help='confidence threshold, default 0.25')
+                        default=0.7,
+                        help='confidence threshold, default 0.7')
     parser.add_argument('--iou_threshold',
                         type=float,
                         required=False,
@@ -118,14 +117,14 @@ def frame_generator(cap, batch_size=1):
         else:
             break
  
-def yolov8_preprocess(frames):
+def yolov5_preprocess(frames):
     input_image_buffer = []
     for frame in frames:
         input_image_buffer.append(preprocess(frame, [FLAGS.height, FLAGS.width]))
     input_image_buffer = [np.stack(input_image_buffer, axis=0)]
     return input_image_buffer
 
-def yolov8_postprocess(predictions, frames):
+def yolov5_postprocess(predictions, frames):
     detected_objects_list = []
     prediction = np.stack(predictions, axis=0)
     frame = frames[0]
@@ -160,7 +159,7 @@ def postprocess_thread():
         request_id = int(result.get_response().id)
         frames = input_frames[request_id]
         rendered_frames = []
-        detected_objects_list = postprocess(predictions, frames)
+        detected_objects_list = yolov5_postprocess(predictions, frames)
 
         for idx, frame in enumerate(frames):
             detected_objects = detected_objects_list[idx]
@@ -224,7 +223,7 @@ if __name__ == '__main__':
     for frames in frame_generator(cap, FLAGS.batch_size):
         print(f"Sending batch {sent_count}...")
 
-        input_image_buffer = yolov8_preprocess(frames)
+        input_image_buffer = yolov5_preprocess(frames)
         input_frames[sent_count] = frames
 
         output = model.async_infer(input_image_buffer, partial(completion_callback, infer_status), request_id=str(sent_count))
