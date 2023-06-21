@@ -10,7 +10,7 @@ import threading
 from datetime import datetime
 from collections import deque
 
-import hydra
+# import hydra
 import torch
 import argparse
 import time
@@ -28,10 +28,9 @@ object_counter = {}
 
 object_counter1 = {}
 
-# line = [(100, 500), (1050, 500)]
-# line = [(1200, 300), (2300, 550)]
-line = [(960, 100), (960, 1000)]
-
+# line = [(1200, 300), (2300, 550)] # Washmaster
+# line = [(960, 100), (960, 1000)] # IAH 
+line = [(1404, 403), (1869, 406)]
 palette = (2 ** 11 - 1, 2 ** 15 - 1, 2 ** 20 - 1)
 data_deque = {}
 NAMES = ['vehicle', 'human', 'license_plate']
@@ -215,7 +214,8 @@ def draw_boxes(img, bbox, names, object_id, identities=None, offset=(0, 0)):
             # generate dynamic thickness of trails
             thickness = int(np.sqrt(64 / float(i + i)) * 1.5)
             # draw trails
-            cv2.line(img, data_deque[id][i - 1], data_deque[id][i], color, thickness)
+            if thickness > 0:
+                cv2.line(img, data_deque[id][i - 1], data_deque[id][i], color, thickness)
     
     #4. Display Count in top right corner
     img = display_count(img, show_line=False)
