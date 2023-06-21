@@ -203,6 +203,8 @@ if __name__ == '__main__':
 
 
     print("Opening output video stream...")
+    if not os.path.exists("output"):
+        os.makedirs("output")
     fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
     filename = os.path.splitext(os.path.basename(FLAGS.input))[0]
     now = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
