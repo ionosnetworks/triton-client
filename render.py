@@ -122,7 +122,7 @@ def visualize_detection(input_image, detected_objects, labels=Labels, verbose=Fa
         # size = get_text_size(rendered_image, f"{Labels(box.classID).name}: {box.confidence:.2f}", normalised_scaling=0.6)
         # rendered_image = render_filled_box(rendered_image, (box.x1 - 3, box.y1 - 3, box.x1 + size[0], box.y1 + size[1]), color=(220, 220, 220))
         if hasattr(box, 'plate'):
-            rendered_image = render_text(rendered_image, f"{box.plate}: {box.confidence:.2f} ", (box.x1, box.y1), color=(30, 30, 30), normalised_scaling=0.5)
+            rendered_image = render_text(rendered_image, f"{box.plate}: {box.confidence:.2f} ", (box.x1, box.y1), color=(27, 3, 163), normalised_scaling=0.5)
         else:
             rendered_image = render_text(rendered_image, f"{labels(box.classID).name}: {box.confidence:.2f}", (box.x1, box.y1), color=(30, 30, 30), normalised_scaling=0.5)
     return rendered_image
