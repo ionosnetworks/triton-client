@@ -212,6 +212,8 @@ if __name__ == '__main__':
 
     out_filename = FLAGS.out if FLAGS.out else f"output/{filename}_bs{FLAGS.batch_size}_{FLAGS.model_name}_{now}.mp4"
     print(f"Output video: {out_filename}")
+    if not os.path.exists("output"):
+        os.makedirs("output")
     out = cv2.VideoWriter(out_filename, fourcc, fps, (frame_width, frame_height))
 
     sent_count = 0
