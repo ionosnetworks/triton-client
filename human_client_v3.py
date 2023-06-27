@@ -141,13 +141,13 @@ def human_preprocess(frames):
 
 
 def show_attributes(frames, grouped_attributes_list):
-    global prev_count
+    global prev_count, counter
     blank_image = np.zeros((768, 768, 3), np.uint8)
     blank_image.fill(255)
     font, font_scale, thickness = cv2.FONT_HERSHEY_SIMPLEX, 1, 2
     red_color = (0, 0, 255)
     black_color = (0, 0, 0)
-    text_size, _ = cv2.getTextSize("abc", font, font_scale, thickness)
+    text_size, _ = cv2.getTextSize("dp", font, font_scale, thickness)
     dh = text_size[1]
     rendered_frames = []
     cur_count = set()
@@ -157,19 +157,23 @@ def show_attributes(frames, grouped_attributes_list):
         frame = blank_image.copy()
         h = dh 
         for group, attrs in grouped_attributes.items():
-            show_group = False
             for attr in attrs:
                 counter[group, attr] += 1
                 cur_count.add((group, attr))
-                if counter[group, attr] >= FLAGS.consecutive_match:
-                    if not show_group:
-                        cv2.putText(frame, f"{group}:", (5, h), font, font_scale, black_color, thickness)
-                        h += dh
-                        show_group = True
-                    cv2.putText(frame, f"{attr}", (5, h), font, font_scale, red_color, thickness)
-                    h += dh 
+
+        shown_group = set()
+        for group, attr in sorted(list(counter)):
+            if counter[group, attr] >= FLAGS.consecutive_match:
+                if group not in shown_group:
+                    cv2.putText(frame, f"{group}:", (5, h), font, font_scale, black_color, thickness)
+                    h += dh
+                    shown_group.add(group)
+                cv2.putText(frame, f"{attr}", (5, h), font, font_scale, red_color, thickness)
+                h += dh 
+
         for group, attr in prev_count.difference(cur_count):
-            counter[group, attr] = 0
+            if counter[group, attr] < FLAGS.consecutive_match:
+                counter[group, attr] = 0
 
         rendered_frames.append(frame) 
         prev_count = cur_count
