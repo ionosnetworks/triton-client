@@ -89,6 +89,12 @@ def get_flags():
                         required=False,
                         default='',
                         help='Output video file name.')
+    parser.add_argument('-fd',
+                        '--folder',
+                        type=str,
+                        required=False,
+                        default='',
+                        help='Output folder name.')
     parser.add_argument('-b',
                         '--batch-size',
                         type=int,
@@ -203,7 +209,8 @@ def postprocess_thread():
             attribute_name = output_name[:-8]
             attribute_name_split = attribute_name.split('_')
             group, attr = attribute_name_split[0].lower(), '_'.join(attribute_name_split[1:]).lower()
-            res = np.squeeze(res)
+            if bs > 1:
+                res = np.squeeze(res)
             for i in range(bs):
                 if res[i][0] <= res[i][1]:
                     grouped_attrs_list[i][group].append(attr)
@@ -258,12 +265,13 @@ if __name__ == '__main__':
 
 
     print("Opening output video stream...")
-    if not os.path.exists("output"):
-        os.makedirs("output")
+    out_folder = FLAGS.folder if FLAGS.folder else "output"
+    if not os.path.exists(out_folder):
+        os.makedirs(out_folder)
     fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
     filename = os.path.splitext(os.path.basename(FLAGS.input))[0]
     now = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    out_filename = FLAGS.out if FLAGS.out else f"output/{filename}_bs{FLAGS.batch_size}_{FLAGS.model_name}_{now}.mp4"
+    out_filename = FLAGS.out if FLAGS.out else f"{out_folder}/{filename}_bs{FLAGS.batch_size}_{FLAGS.model_name}_{now}.mp4"
     print(f"Output video: {out_filename}")
     out = cv2.VideoWriter(out_filename, fourcc, fps, (768, 768))
 
