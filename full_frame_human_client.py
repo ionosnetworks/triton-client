@@ -31,6 +31,7 @@ class Track:
         self.frames = []
         self.attributes = []
         self.width, self.height = 0, 0
+        self.target_shape = (384, 192)
 
     def add_frame(self, original_frame, bbox_xyxy):
         x1, y1, x2, y2 = bbox_xyxy
@@ -44,13 +45,29 @@ class Track:
         if not os.path.exists(save_folder): 
             os.makedirs(save_folder)
         filename = os.path.join(save_folder, f'{self.id}.mp4')
-        out = cv2.VideoWriter(filename, cv2.VideoWriter_fourcc(*'mp4v'), fps, (self.width, self.height))
+        out = cv2.VideoWriter(filename, cv2.VideoWriter_fourcc(*'mp4v'), fps, (self.target_shape[1], self.target_shape[0]))
         for frame in self.frames:
-            y_pos = (self.height - frame.shape[0]) // 2
-            x_pos = (self.width - frame.shape[1]) // 2
-            frame = cv2.copyMakeBorder(frame, y_pos, y_pos, x_pos, x_pos, cv2.BORDER_CONSTANT, value=(127,127,127))
-            out.write(frame)       
+            # y_pos = (self.height - frame.shape[0]) // 2
+            # x_pos = (self.width - frame.shape[1]) // 2
+            # frame = cv2.copyMakeBorder(frame, y_pos, y_pos, x_pos, x_pos, cv2.BORDER_CONSTANT, value=(127,127,127))
+            out.write(self.letterbox(frame))    
         out.release()
+    
+    def letterbox(self, img):
+        target_shape = self.target_shape
+        img_h, img_w, _ = img.shape
+        new_h, new_w = target_shape[0], target_shape[1]
+        offset_h, offset_w = 0, 0
+        if (new_w / img_w) <= (new_h / img_h):
+            new_h = int(img_h * new_w / img_w)
+            offset_h = (target_shape[0] - new_h) // 2
+        else:
+            new_w = int(img_w * new_h / img_h)
+            offset_w = (target_shape[1] - new_w) // 2
+        resized = cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_CUBIC)
+        img = np.full((target_shape[0], target_shape[1], 3), 127, dtype=np.uint8)
+        img[offset_h:(offset_h + new_h), offset_w:(offset_w + new_w), :] = resized
+        return img
 
 
 def init_tracker():
@@ -236,7 +253,6 @@ def postprocess_thread():
                 # out.write(rendered_frame)        
             batch_process_end = time.time()
             print(f"Postprocessed batch {current_batch}, took {batch_process_end-batch_end:.3f} s")
-            print(f"Writing batch {current_batch} to output")
             current_batch += 1
         processed_count += 1
     
@@ -309,7 +325,7 @@ if __name__ == '__main__':
     # out.release()
     end_time = time.time()
 
-    folder_path =  out_folder
+    folder_path = out_folder
     for filename in os.listdir(folder_path):
         file_path = os.path.join(folder_path, filename)
         if os.path.isfile(file_path) and filename.lower().endswith(('.mp4')):
